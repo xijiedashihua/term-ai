@@ -198,6 +198,10 @@ function createSessionTab(sessionId, name, sshConfigId) {
 
   tabList.appendChild(tab);
 
+  // 显示模式切换器和AI面板
+  document.getElementById('view-mode-switcher').classList.remove('hidden');
+  setViewMode(state.viewMode);
+
   // 创建终端
   createTerminal(sessionId, sshConfigId);
 
@@ -359,15 +363,6 @@ function closeSession(sessionId) {
 
   // 清空AI面板
   state.aiMessages.delete(sessionId);
-  const aiChat = document.getElementById('ai-chat-messages');
-  aiChat.innerHTML = `
-    <div class="ai-welcome">
-      <div class="ai-avatar">🤖</div>
-      <div class="ai-welcome-text">
-        <p>我是AI运维Agent。</p>
-        <p class="hint">连接SSH后开始对话</p>
-      </div>
-    </div>`;
 
   // 切换到其他标签或显示欢迎页
   if (state.sessions.size > 0) {
@@ -375,8 +370,21 @@ function closeSession(sessionId) {
     switchToSession(firstId);
   } else {
     state.activeSessionId = null;
+    // 隐藏模式切换器和AI面板，显示欢迎页
+    document.getElementById('view-mode-switcher').classList.add('hidden');
+    setViewMode('terminal');
     document.getElementById('welcome-screen').classList.remove('hidden');
     updateStatusBar('disconnected');
+    // 重置AI面板为欢迎状态
+    const aiChat = document.getElementById('ai-chat-messages');
+    aiChat.innerHTML = `
+      <div class="ai-welcome">
+        <div class="ai-avatar">🤖</div>
+        <div class="ai-welcome-text">
+          <p>我是AI运维Agent。</p>
+          <p class="hint">连接SSH后开始对话</p>
+        </div>
+      </div>`;
   }
 }
 

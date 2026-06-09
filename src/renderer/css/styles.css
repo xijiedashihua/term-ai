@@ -333,33 +333,37 @@ html, body {
 /* 视图模式切换器 */
 .view-mode-switcher {
   display: flex;
-  gap: 2px;
-  padding: 0 8px;
+  gap: 4px;
+  padding: 0 12px;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .view-mode-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 24px;
-  border: none;
-  background: transparent;
+  width: 32px;
+  height: 28px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
   color: var(--text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: all var(--transition);
+  font-size: 11px;
 }
 
 .view-mode-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+  border-color: var(--border-light);
 }
 
 .view-mode-btn.active {
   color: var(--accent-blue);
-  background: var(--bg-surface);
+  background: var(--bg-primary);
+  border-color: var(--accent-blue);
 }
 
 /* 内容区域 */
