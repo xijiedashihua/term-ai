@@ -6,7 +6,6 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src *; img-src 'self' data:;">
   <title>AI-SSH 智能终端管理</title>
   <link rel="stylesheet" href="css/styles.css">
-  <!-- xterm.js 本地化 -->
   <link rel="stylesheet" href="vendor/xterm.css">
 </head>
 <body>
@@ -56,7 +55,6 @@
         </button>
       </div>
       <div id="ssh-list" class="ssh-list">
-        <!-- SSH连接列表动态渲染 -->
         <div class="empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <p>暂无SSH连接</p>
@@ -70,33 +68,98 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
 
-    <!-- 中间：核心操作区 -->
+    <!-- 核心操作区 -->
     <main class="main-area">
-      <!-- 标签栏 -->
+      <!-- 标签栏 + 视图模式切换 -->
       <div id="tab-bar" class="tab-bar">
-        <div class="tab-list" id="tab-list">
-          <!-- 动态标签 -->
+        <div class="tab-list" id="tab-list"></div>
+        <div class="view-mode-switcher">
+          <button class="view-mode-btn" data-view="terminal" title="终端模式 (Ctrl+1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </button>
+          <button class="view-mode-btn" data-view="ai" title="AI模式 (Ctrl+2)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z"/><path d="M18 14h.01"/><path d="M6 14h.01"/><path d="M12 17v4"/></svg>
+          </button>
+          <button class="view-mode-btn active" data-view="split" title="分屏模式 (Ctrl+3)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          </button>
         </div>
       </div>
 
-      <!-- 终端区域 -->
-      <div id="terminal-container" class="terminal-container">
-        <div class="welcome-screen" id="welcome-screen">
-          <div class="welcome-content">
-            <h1>AI-SSH 智能终端</h1>
-            <p>选择左侧SSH连接开始运维，或使用右侧AI助手</p>
-            <div class="shortcuts">
-              <div class="shortcut"><kbd>Ctrl+T</kbd> 新建终端</div>
-              <div class="shortcut"><kbd>Ctrl+W</kbd> 关闭标签</div>
-              <div class="shortcut"><kbd>Ctrl+Shift+C</kbd> 复制</div>
-              <div class="shortcut"><kbd>Ctrl+Shift+V</kbd> 粘贴</div>
+      <!-- 内容区域：终端 + AI -->
+      <div class="content-area" id="content-area">
+        <!-- 终端区域 -->
+        <div id="terminal-container" class="terminal-container">
+          <div class="welcome-screen" id="welcome-screen">
+            <div class="welcome-content">
+              <h1>AI-SSH 智能终端</h1>
+              <p>选择左侧SSH连接开始运维</p>
+              <div class="shortcuts">
+                <div class="shortcut"><kbd>Ctrl+1</kbd> 终端模式</div>
+                <div class="shortcut"><kbd>Ctrl+2</kbd> AI模式</div>
+                <div class="shortcut"><kbd>Ctrl+3</kbd> 分屏模式</div>
+              </div>
             </div>
           </div>
         </div>
-        <!-- xterm.js终端实例将动态创建 -->
+
+        <!-- AI Agent面板 -->
+        <div id="ai-panel" class="ai-panel">
+          <div class="ai-panel-header">
+            <span class="ai-panel-title">AI Agent</span>
+            <div class="ai-panel-actions">
+              <button id="ai-new-chat-btn" class="icon-btn" title="新建对话">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <button id="ai-history-btn" class="icon-btn" title="对话历史">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="ai-toolbar">
+            <div class="ai-mode-switcher">
+              <button class="ai-mode-btn active" data-mode="ask" title="询问模式">Ask</button>
+              <button class="ai-mode-btn" data-mode="auto" title="自动模式">Auto</button>
+              <button class="ai-mode-btn" data-mode="plan" title="计划模式">Plan</button>
+            </div>
+            <select id="ai-model-select" class="ai-model-select" title="选择AI模型">
+              <option value="">模型...</option>
+            </select>
+          </div>
+
+          <div id="ai-chat-messages" class="ai-chat-messages">
+            <div class="ai-welcome">
+              <div class="ai-avatar">🤖</div>
+              <div class="ai-welcome-text">
+                <p>我是AI运维Agent。</p>
+                <p class="hint">模式: <strong>Ask</strong></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-input-area">
+            <div class="ai-input-toolbar">
+              <label class="ai-context-toggle" title="同步终端上下文">
+                <input type="checkbox" id="ai-context-sync" checked>
+                <span>同步终端</span>
+              </label>
+              <span id="ai-mode-hint" class="ai-mode-hint">Ask</span>
+            </div>
+            <div class="ai-input-wrapper">
+              <textarea id="ai-input" class="ai-input" placeholder="描述运维需求..." rows="2"></textarea>
+              <button id="ai-send-btn" class="ai-send-btn" title="发送">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+              <button id="ai-stop-btn" class="ai-stop-btn hidden" title="停止">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- SFTP面板（底部可收起） -->
+      <!-- SFTP面板 -->
       <div id="sftp-panel" class="sftp-panel hidden">
         <div class="sftp-header">
           <h3>
@@ -115,108 +178,26 @@
         <div id="sftp-path-bar" class="sftp-path-bar">
           <span id="sftp-current-path" class="sftp-path">/</span>
         </div>
-        <div id="sftp-file-list" class="sftp-file-list">
-          <!-- 文件列表动态渲染 -->
-        </div>
+        <div id="sftp-file-list" class="sftp-file-list"></div>
       </div>
     </main>
-
-    <!-- 右侧：AI Agent面板 -->
-    <aside id="ai-panel" class="ai-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z"/><path d="M18 14h.01"/><path d="M6 14h.01"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
-          AI Agent
-        </h2>
-        <div class="ai-panel-controls">
-          <button id="ai-history-btn" class="icon-btn" title="对话历史">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </button>
-          <button id="toggle-ai-panel" class="icon-btn" title="收起面板">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- 模式切换和模型选择 -->
-      <div class="ai-toolbar">
-        <div class="ai-mode-switcher">
-          <button class="ai-mode-btn active" data-mode="ask" title="询问模式 - 命令需手动确认执行">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Ask
-          </button>
-          <button class="ai-mode-btn" data-mode="auto" title="自动模式 - 命令自动执行">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Auto
-          </button>
-          <button class="ai-mode-btn" data-mode="plan" title="计划模式 - 只生成计划不执行">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Plan
-          </button>
-        </div>
-        <select id="ai-model-select" class="ai-model-select" title="选择AI模型">
-          <option value="">选择模型...</option>
-        </select>
-      </div>
-
-      <!-- AI对话历史 -->
-      <div id="ai-chat-messages" class="ai-chat-messages">
-        <div class="ai-welcome">
-          <div class="ai-avatar">🤖</div>
-          <div class="ai-welcome-text">
-            <p>你好！我是AI运维Agent。</p>
-            <p>描述你的运维需求，我会分析、规划并执行。</p>
-            <p class="hint">当前模式: <strong>Ask</strong>（命令需确认后执行）</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- AI输入区域 -->
-      <div class="ai-input-area">
-        <div class="ai-input-toolbar">
-          <label class="ai-context-toggle" title="自动同步终端上下文到AI">
-            <input type="checkbox" id="ai-context-sync" checked>
-            <span>同步终端</span>
-          </label>
-          <span id="ai-mode-hint" class="ai-mode-hint">Ask: 命令需确认</span>
-        </div>
-        <div class="ai-input-wrapper">
-          <textarea id="ai-input" class="ai-input" placeholder="描述你的运维需求..." rows="3"></textarea>
-          <button id="ai-send-btn" class="ai-send-btn" title="发送">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          </button>
-          <button id="ai-stop-btn" class="ai-stop-btn hidden" title="停止生成">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-          </button>
-        </div>
-      </div>
-    </aside>
-
-    <!-- 对话历史列表弹窗 -->
-    <div id="chat-history-modal" class="modal hidden">
-      <div class="modal-overlay"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>对话历史</h3>
-          <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div id="chat-history-list" class="chat-history-list">
-            <div class="empty-state">
-              <p>暂无对话历史</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- AI面板收起时的展开按钮 -->
-    <div id="ai-panel-toggle" class="ai-panel-toggle hidden" title="展开AI面板">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-    </div>
   </div>
 
-  <!-- ========== 模态框 ========== -->
+  <!-- 对话历史弹窗 -->
+  <div id="chat-history-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>对话历史</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="chat-history-list" class="chat-history-list">
+          <div class="empty-state"><p>暂无对话历史</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- SSH配置编辑模态框 -->
   <div id="ssh-edit-modal" class="modal hidden">
@@ -250,12 +231,8 @@
           <div class="form-group">
             <label>认证方式</label>
             <div class="radio-group">
-              <label class="radio-label">
-                <input type="radio" name="authType" value="password" checked> 密码
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="authType" value="privateKey"> 私钥
-              </label>
+              <label class="radio-label"><input type="radio" name="authType" value="password" checked> 密码</label>
+              <label class="radio-label"><input type="radio" name="authType" value="privateKey"> 私钥</label>
             </div>
           </div>
           <div id="password-group" class="form-group">
@@ -366,9 +343,7 @@
       <div class="modal-body">
         <div class="settings-section">
           <h4>AI模型管理</h4>
-          <div id="ai-models-list" class="models-list">
-            <!-- 动态渲染 -->
-          </div>
+          <div id="ai-models-list" class="models-list"></div>
           <button class="btn btn-sm btn-primary" id="add-ai-model-btn">添加模型</button>
         </div>
         <div class="settings-section">
@@ -436,7 +411,6 @@
     </div>
   </div>
 
-  <!-- 脚本 -->
   <script src="vendor/xterm.js"></script>
   <script src="vendor/addon-fit.js"></script>
   <script src="vendor/addon-web-links.js"></script>

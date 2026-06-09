@@ -15,8 +15,10 @@ const state = {
   pendingCommand: null,
   // Agent 相关状态
   agentMode: 'ask', // ask | auto | plan
-  agentSteps: [], // 当前任务的步骤列表
-  currentStep: 0, // 当前执行到第几步
+  agentSteps: [],
+  currentStep: 0,
+  // 视图模式
+  viewMode: 'split', // terminal | ai | split
 };
 
 // ========== 工具函数 ==========
@@ -1460,7 +1462,7 @@ function setupModals() {
 
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    // Ctrl+T: 新建终端（暂用当前配置）
+    // Ctrl+T: 新建终端
     if (e.ctrlKey && e.key === 't') {
       e.preventDefault();
       if (state.sshConnections.length > 0) {
@@ -1474,6 +1476,24 @@ function setupKeyboardShortcuts() {
       if (state.activeSessionId) {
         closeSession(state.activeSessionId);
       }
+    }
+
+    // Ctrl+1: 终端模式
+    if (e.ctrlKey && e.key === '1') {
+      e.preventDefault();
+      setViewMode('terminal');
+    }
+
+    // Ctrl+2: AI模式
+    if (e.ctrlKey && e.key === '2') {
+      e.preventDefault();
+      setViewMode('ai');
+    }
+
+    // Ctrl+3: 分屏模式
+    if (e.ctrlKey && e.key === '3') {
+      e.preventDefault();
+      setViewMode('split');
     }
 
     // Ctrl+Shift+C: 复制（终端内）
@@ -1508,6 +1528,61 @@ function setupKeyboardShortcuts() {
   });
 }
 
+// ========== 视图模式切换 ==========
+
+function setViewMode(mode) {
+  state.viewMode = mode;
+  const contentArea = document.getElementById('content-area');
+  contentArea.setAttribute('data-view', mode);
+
+  // 更新按钮状态
+  document.querySelectorAll('.view-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === mode);
+  });
+
+  // 切换到AI模式时聚焦输入框
+  if (mode === 'ai') {
+    setTimeout(() => {
+      const input = document.getElementById('ai-input');
+      if (input) input.focus();
+    }, 100);
+  }
+
+  // 切换到终端模式时聚焦终端
+  if (mode === 'terminal' && state.activeSessionId) {
+    const session = state.sessions.get(state.activeSessionId);
+    if (session) {
+      setTimeout(() => session.terminal.focus(), 100);
+    }
+  }
+
+  // 分屏模式下重新适配终端大小
+  if (state.activeSessionId) {
+    const session = state.sessions.get(state.activeSessionId);
+    if (session) {
+      setTimeout(() => {
+        session.fitAddon.fit();
+        const dims = session.fitAddon.proposeDimensions();
+        if (dims) {
+          window.api.session.resize(state.activeSessionId, dims.cols, dims.rows);
+        }
+      }, 150);
+    }
+  }
+}
+
+function setupViewModeSwitcher() {
+  document.querySelectorAll('.view-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setViewMode(btn.dataset.view);
+    });
+  });
+
+  // 初始化默认模式
+  const contentArea = document.getElementById('content-area');
+  contentArea.setAttribute('data-view', state.viewMode);
+}
+
 // ========== 应用初始化 ==========
 
 async function initApp() {
@@ -1523,9 +1598,21 @@ async function initApp() {
   setupSFTPPanel();
   setupModals();
   setupKeyboardShortcuts();
+  setupViewModeSwitcher();
 
   // 新建连接按钮
   document.getElementById('add-ssh-btn').addEventListener('click', () => openSSHEditModal());
+
+  // 新建对话按钮
+  document.getElementById('ai-new-chat-btn').addEventListener('click', () => {
+    const sessionId = state.activeSessionId || 'default';
+    // 保存当前对话
+    saveCurrentChatHistory();
+    // 清空当前对话
+    state.aiMessages.set(sessionId, []);
+    renderChatMessages(sessionId);
+    showToast('已创建新对话', 'success');
+  });
 
   console.log('AI-SSH 初始化完成');
 }
