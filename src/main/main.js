@@ -214,18 +214,16 @@ function registerIPC() {
     const aiConfig = configStore.getAIConfig();
     const systemPrompt = aiConfig.systemPrompt || '';
 
-    const fullMessages = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // 如果有终端上下文，追加到系统消息
+    // 合并为单条 system 消息（兼容所有 API）
+    let systemContent = systemPrompt;
     if (terminalContext) {
-      fullMessages.push({
-        role: 'system',
-        content: `以下是当前SSH终端最近的执行输出（已脱敏），请作为上下文参考：\n\`\`\`\n${terminalContext}\n\`\`\``,
-      });
+      systemContent += `\n\n以下是当前SSH终端最近的执行输出（已脱敏），请作为上下文参考：\n\`\`\`\n${terminalContext}\n\`\`\``;
     }
 
+    const fullMessages = [];
+    if (systemContent) {
+      fullMessages.push({ role: 'system', content: systemContent });
+    }
     fullMessages.push(...messages);
 
     // 非流式请求
@@ -243,17 +241,16 @@ function registerIPC() {
     const aiConfig = configStore.getAIConfig();
     const systemPrompt = aiConfig.systemPrompt || '';
 
-    const fullMessages = [
-      { role: 'system', content: systemPrompt },
-    ];
-
+    // 合并为单条 system 消息（兼容所有 API）
+    let systemContent = systemPrompt;
     if (terminalContext) {
-      fullMessages.push({
-        role: 'system',
-        content: `以下是当前SSH终端最近的执行输出（已脱敏），请作为上下文参考：\n\`\`\`\n${terminalContext}\n\`\`\``,
-      });
+      systemContent += `\n\n以下是当前SSH终端最近的执行输出（已脱敏），请作为上下文参考：\n\`\`\`\n${terminalContext}\n\`\`\``;
     }
 
+    const fullMessages = [];
+    if (systemContent) {
+      fullMessages.push({ role: 'system', content: systemContent });
+    }
     fullMessages.push(...messages);
 
     const webContents = event.sender;

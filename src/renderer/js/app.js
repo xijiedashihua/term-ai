@@ -27,12 +27,14 @@ function showToast(message, type = 'info') {
   toast.className = `toast ${type}`;
   toast.textContent = message;
   container.appendChild(toast);
+  // 错误和警告停留更久
+  const duration = (type === 'error' || type === 'warning') ? 8000 : 3000;
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(-10px)';
     toast.style.transition = '0.3s ease';
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, duration);
 }
 
 function formatBytes(bytes) {
@@ -47,31 +49,6 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
-}
-
-function parseCommands(text) {
-  // 从AI回复中提取命令块
-  const codeBlockRegex = /```(?:bash|sh|shell)?\n?([\s\S]*?)```/g;
-  const commands = [];
-  let match;
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    const lines = match[1].trim().split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
-    commands.push(...lines);
-  }
-  // 如果没有代码块，尝试提取单行命令
-  if (commands.length === 0) {
-    const lines = text.split('\n');
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('>') && !trimmed.includes('：') && !trimmed.includes('：')) {
-        // 简单启发式：如果行看起来像命令
-        if (/^[a-z]/.test(trimmed) && trimmed.length < 200) {
-          commands.push(trimmed);
-        }
-      }
-    }
-  }
-  return commands;
 }
 
 // ========== SSH面板 ==========
@@ -342,14 +319,21 @@ function closeSession(sessionId) {
   const session = state.sessions.get(sessionId);
   if (!session) return;
 
-  // 断开连接
-  window.api.session.disconnect(sessionId);
+  // 活跃会话需要确认
+  if (session.status === 'connected' || session.status === 'connecting') {
+    if (!confirm('确定关闭此连接？')) return;
+  }
+
+  // 先从状态中移除，防止 onOutput/onStatus 写入已销毁的终端
+  state.sessions.delete(sessionId);
+
+  // 断开连接（fire-and-forget，不阻塞UI）
+  window.api.session.disconnect(sessionId).catch(() => {});
 
   // 销毁终端
-  session.terminal.dispose();
+  try { session.terminal.dispose(); } catch (e) { /* 已销毁 */ }
   session.wrapper.remove();
   session.tabElement.remove();
-  state.sessions.delete(sessionId);
 
   // 切换到其他标签或显示欢迎页
   if (state.sessions.size > 0) {
@@ -375,10 +359,7 @@ function updateTabStatus(sessionId, status) {
 
 function updateStatusBar(status) {
   const el = document.getElementById('status-connection');
-  const dot = el.querySelector('.status-dot');
-  dot.className = `status-dot ${status}`;
   const labels = { connected: '已连接', connecting: '连接中...', disconnected: '未连接', error: '连接错误' };
-  el.querySelector('span:last-child') || el;
   el.innerHTML = `<span class="status-dot ${status}"></span> ${labels[status] || status}`;
 }
 
@@ -388,7 +369,7 @@ function setupSessionListeners() {
   window.api.session.onOutput((data) => {
     const session = state.sessions.get(data.sessionId);
     if (session) {
-      session.terminal.write(data.data);
+      try { session.terminal.write(data.data); } catch (e) { /* 终端已销毁 */ }
     }
   });
 
@@ -397,7 +378,7 @@ function setupSessionListeners() {
     if (data.status === 'disconnected') {
       const session = state.sessions.get(data.sessionId);
       if (session) {
-        session.terminal.writeln('\r\n\x1b[33m[连接已断开]\x1b[0m');
+        try { session.terminal.writeln('\r\n\x1b[33m[连接已断开]\x1b[0m'); } catch (e) { /* 终端已销毁 */ }
       }
     }
     if (data.status === 'error' && data.error) {
@@ -436,10 +417,18 @@ function openSSHEditModal(editId) {
         document.querySelector('input[name="authType"][value="password"]').checked = true;
         toggleAuthFields('password');
       }
+
+      // 敏感字段用 placeholder 提示已保存，留空不修改
+      document.getElementById('ssh-form-password').placeholder = '已保存，留空则不修改';
+      document.getElementById('ssh-form-privatekey').placeholder = '已保存，留空则不修改';
+      document.getElementById('ssh-form-passphrase').placeholder = '已保存，留空则不修改';
     }
   } else {
     title.textContent = '新建SSH连接';
     toggleAuthFields('password');
+    document.getElementById('ssh-form-password').placeholder = '输入密码';
+    document.getElementById('ssh-form-privatekey').placeholder = '-----BEGIN RSA PRIVATE KEY-----';
+    document.getElementById('ssh-form-passphrase').placeholder = '私钥密码';
   }
 
   modal.classList.remove('hidden');
@@ -468,11 +457,27 @@ async function saveSSHConfig() {
 
   const config = { id, name, host, port, username, authType, timeout, group };
 
+  // 编辑模式下，敏感字段留空表示不修改
   if (authType === 'password') {
-    config.password = document.getElementById('ssh-form-password').value;
+    const password = document.getElementById('ssh-form-password').value;
+    if (password) config.password = password;
   } else {
-    config.privateKey = document.getElementById('ssh-form-privatekey').value;
-    config.passphrase = document.getElementById('ssh-form-passphrase').value;
+    const privateKey = document.getElementById('ssh-form-privatekey').value;
+    const passphrase = document.getElementById('ssh-form-passphrase').value;
+    if (privateKey) config.privateKey = privateKey;
+    if (passphrase) config.passphrase = passphrase;
+  }
+
+  // 新建模式必须填写认证信息
+  if (!document.getElementById('ssh-form-id').value) {
+    if (authType === 'password' && !config.password) {
+      showToast('请输入密码', 'warning');
+      return;
+    }
+    if (authType === 'privateKey' && !config.privateKey) {
+      showToast('请输入私钥', 'warning');
+      return;
+    }
   }
 
   try {
@@ -510,11 +515,16 @@ function setupAIChat() {
   const stopBtn = document.getElementById('ai-stop-btn');
   const modelSelect = document.getElementById('ai-model-select');
 
+  // 输入法组字状态追踪（解决中文输入法回车触发发送的问题）
+  let isComposing = false;
+  input.addEventListener('compositionstart', () => { isComposing = true; });
+  input.addEventListener('compositionend', () => { isComposing = false; });
+
   // 发送消息
   sendBtn.addEventListener('click', sendAIMessage);
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault();
       sendAIMessage();
     }
@@ -662,7 +672,7 @@ function appendAIStreamContent(content) {
 
   // 简单markdown渲染
   let html = escapeHtml(state._streamContent);
-  // 代码块
+  // 代码块 → 可执行命令块
   html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<div class="ai-command-block"><div class="ai-command-header"><span>命令</span></div><div class="ai-command-content">$2</div><div class="ai-command-actions"><button class="btn btn-xs btn-primary execute-cmd-btn">执行</button><button class="btn btn-xs btn-secondary copy-cmd-btn">复制</button></div></div>');
   // 行内代码
   html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg-surface);padding:1px 4px;border-radius:3px;font-family:var(--font-mono);font-size:12px;">$1</code>');
@@ -800,6 +810,7 @@ function renderSFTPFiles(files) {
         <span class="sftp-file-perms">${file.permissions}</span>
         <span class="sftp-file-actions">
           ${file.type === 'file' ? `<button class="icon-btn btn-download" title="下载"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>` : ''}
+          <button class="icon-btn btn-rename" title="重命名"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="icon-btn btn-delete" title="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
         </span>
       </div>`;
@@ -856,6 +867,28 @@ function renderSFTPFiles(files) {
       }
     });
   });
+
+  fileList.querySelectorAll('.btn-rename').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const item = btn.closest('.sftp-file-item');
+      const oldName = item.dataset.name;
+      const remotePath = sftpCurrentPath === '/' ? '/' + oldName : sftpCurrentPath + '/' + oldName;
+
+      const newName = prompt('输入新名称:', oldName);
+      if (newName && newName !== oldName) {
+        const parentDir = sftpCurrentPath;
+        const newPath = parentDir === '/' ? '/' + newName : parentDir + '/' + newName;
+        try {
+          await window.api.session.sftpRename(sftpSessionId, remotePath, newPath);
+          showToast('重命名成功', 'success');
+          loadSFTPFiles();
+        } catch (err) {
+          showToast('重命名失败: ' + err.message, 'error');
+        }
+      }
+    });
+  });
 }
 
 // ========== 全局配置模态框 ==========
@@ -895,15 +928,17 @@ async function openSettingsModal() {
   });
 
   modelsList.querySelectorAll('[data-action="edit-model"]').forEach(btn => {
-    openAIModelModal(btn.dataset.id);
+    btn.addEventListener('click', () => {
+      openAIModelModal(btn.dataset.id);
+    });
   });
 
   modelsList.querySelectorAll('[data-action="delete-model"]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (confirm('确定删除此模型？')) {
         await window.api.config.deleteAIModel(btn.dataset.id);
-        openSettingsModal(); // 刷新
         await loadAIModels();
+        await openSettingsModal(); // 刷新
         showToast('模型已删除', 'success');
       }
     });
@@ -932,6 +967,7 @@ async function saveSettings() {
 function openAIModelModal(editId) {
   const modal = document.getElementById('ai-model-modal');
   const title = document.getElementById('ai-modal-title');
+  const apiKeyInput = document.getElementById('ai-form-api-key');
 
   document.getElementById('ai-model-form').reset();
   document.getElementById('ai-form-id').value = '';
@@ -945,11 +981,19 @@ function openAIModelModal(editId) {
       document.getElementById('ai-form-format').value = model.apiFormat || 'openai';
       document.getElementById('ai-form-model-name').value = model.modelName || '';
       document.getElementById('ai-form-base-url').value = model.baseUrl || '';
+      // API Key 不回显，用 placeholder 提示
+      apiKeyInput.value = '';
+      apiKeyInput.placeholder = '已保存，留空则不修改';
     }
   } else {
     title.textContent = '添加AI模型';
+    apiKeyInput.placeholder = 'sk-...';
   }
 
+  // 提升层级，确保显示在其他模态框之上
+  const openModals = document.querySelectorAll('.modal:not(.hidden)');
+  const maxZ = Math.max(...Array.from(openModals).map(el => parseInt(getComputedStyle(el).zIndex) || 2000), 2000);
+  modal.style.zIndex = maxZ + 1;
   modal.classList.remove('hidden');
 }
 
@@ -966,12 +1010,26 @@ async function saveAIModel() {
     return;
   }
 
-  const config = { id, alias, apiFormat, modelName, baseUrl, apiKey };
+  // 编辑模式下，API Key 留空表示不修改
+  const config = { id, alias, apiFormat, modelName, baseUrl };
+  if (apiKey) {
+    config.apiKey = apiKey;
+  } else if (!id || !document.getElementById('ai-form-id').value) {
+    // 新建模式必须填写 API Key
+    if (!apiKey) {
+      showToast('请填写 API Key', 'warning');
+      return;
+    }
+  }
 
   try {
     await window.api.config.saveAIModel(config);
-    document.getElementById('ai-model-modal').classList.add('hidden');
+    const aiModal = document.getElementById('ai-model-modal');
+    aiModal.classList.add('hidden');
+    aiModal.style.zIndex = '';
     await loadAIModels();
+    // 刷新全局配置弹窗中的模型列表
+    await openSettingsModal();
     showToast('模型已保存', 'success');
   } catch (err) {
     showToast('保存失败: ' + err.message, 'error');
@@ -1118,14 +1176,18 @@ function setupModals() {
   // 关闭按钮
   document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => {
-      btn.closest('.modal').classList.add('hidden');
+      const modal = btn.closest('.modal');
+      modal.classList.add('hidden');
+      modal.style.zIndex = '';
     });
   });
 
   // 点击遮罩关闭
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', () => {
-      overlay.closest('.modal').classList.add('hidden');
+      const modal = overlay.closest('.modal');
+      modal.classList.add('hidden');
+      modal.style.zIndex = '';
     });
   });
 
@@ -1143,16 +1205,18 @@ function setupModals() {
   // AI模型表单
   document.getElementById('ai-form-save').addEventListener('click', saveAIModel);
   document.getElementById('ai-form-cancel').addEventListener('click', () => {
-    document.getElementById('ai-model-modal').classList.add('hidden');
+    const aiModal = document.getElementById('ai-model-modal');
+    aiModal.classList.add('hidden');
+    aiModal.style.zIndex = '';
   });
 
   document.getElementById('ai-form-test').addEventListener('click', async () => {
     // 先保存再测试
     await saveAIModel();
-    const models = await window.api.config.getAIModels();
-    if (models.length > 0) {
+    const modelId = document.getElementById('ai-form-id').value;
+    if (modelId) {
       showToast('正在测试连接...', 'info');
-      const result = await window.api.config.testAIModel(models[models.length - 1].id);
+      const result = await window.api.config.testAIModel(modelId);
       showToast(result.message, result.success ? 'success' : 'error');
     }
   });
@@ -1232,7 +1296,10 @@ function setupKeyboardShortcuts() {
 
     // Escape: 关闭模态框
     if (e.key === 'Escape') {
-      document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+      document.querySelectorAll('.modal').forEach(m => {
+        m.classList.add('hidden');
+        m.style.zIndex = '';
+      });
     }
   });
 }

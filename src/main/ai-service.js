@@ -29,12 +29,22 @@ class AIService {
    */
   _buildRequestBody(model, messages, stream = true) {
     if (model.apiFormat === 'anthropic') {
+      // 合并所有 system 消息为一个
+      const systemParts = messages
+        .filter((m) => m.role === 'system')
+        .map((m) => m.content)
+        .filter(Boolean);
+      const chatMessages = messages.filter((m) => m.role !== 'system');
+      // Anthropic 要求 messages 必须以 user 开头
+      if (chatMessages.length > 0 && chatMessages[0].role !== 'user') {
+        chatMessages.unshift({ role: 'user', content: '(请继续)' });
+      }
       return {
         model: model.modelName,
         max_tokens: 4096,
         stream,
-        messages: messages.filter((m) => m.role !== 'system'),
-        system: messages.find((m) => m.role === 'system')?.content || '',
+        messages: chatMessages,
+        system: systemParts.join('\n\n') || undefined,
       };
     }
     // OpenAI格式（默认）
@@ -278,7 +288,7 @@ class AIService {
   _parseError(statusCode, body) {
     try {
       const json = JSON.parse(body);
-      const msg = json.error?.message || json.message || body;
+      const msg = json.error?.message || json.error?.param || json.message || body;
       switch (statusCode) {
         case 401:
           return `API Key无效或已过期: ${msg}`;
@@ -286,6 +296,8 @@ class AIService {
           return `访问被拒绝: ${msg}`;
         case 429:
           return `请求频率超限: ${msg}`;
+        case 400:
+          return `参数错误: ${msg}`;
         case 500:
         case 502:
         case 503:

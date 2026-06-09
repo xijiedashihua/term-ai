@@ -121,13 +121,51 @@ class SFTPManager {
   }
 
   /**
-   * 删除远程文件
+   * 删除远程文件或目录（目录递归删除）
    */
   async delete(session, remotePath, isDirectory = false) {
+    if (isDirectory) {
+      return this._deleteRecursive(session, remotePath);
+    }
     const sftp = await session.getSFTP();
     return new Promise((resolve, reject) => {
-      const op = isDirectory ? 'rmdir' : 'unlink';
-      sftp[op](remotePath, (err) => {
+      sftp.unlink(remotePath, (err) => {
+        sftp.end();
+        if (err) reject(err);
+        else resolve({ success: true });
+      });
+    });
+  }
+
+  /**
+   * 递归删除远程目录
+   */
+  async _deleteRecursive(session, remotePath) {
+    const sftp = await session.getSFTP();
+    const list = await new Promise((resolve, reject) => {
+      sftp.readdir(remotePath, (err, list) => {
+        if (err) reject(err);
+        else resolve(list || []);
+      });
+    });
+
+    for (const item of list) {
+      const itemPath = `${remotePath}/${item.filename}`;
+      if (item.attrs.isDirectory()) {
+        sftp.end();
+        await this._deleteRecursive(session, itemPath);
+      } else {
+        await new Promise((resolve, reject) => {
+          sftp.unlink(itemPath, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      sftp.rmdir(remotePath, (err) => {
         sftp.end();
         if (err) reject(err);
         else resolve({ success: true });

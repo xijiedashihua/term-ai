@@ -36,7 +36,7 @@ class ConfigStore {
         aiModels: [],
         aiConfig: {
           defaultModelId: null,
-          systemPrompt: '你是一个专业的Linux运维助手。用户会描述运维需求，你需要生成对应的Linux命令。只输出可执行的命令，不要多余的解释。如果需要多条命令，用换行分隔。',
+          systemPrompt: '你是一个专业的Linux运维助手。用户会描述运维需求，你需要生成对应的Linux命令。请将命令用```bash代码块包裹，这样用户可以直接点击执行。可以简要说明命令的作用，但命令必须放在代码块中。如果需要多条命令，放在同一个代码块中，每行一条。',
         },
         appSettings: {
           terminalFontSize: 14,
@@ -125,10 +125,32 @@ class ConfigStore {
    */
   saveSSHConnection(config) {
     const connections = this.getAllSSHConnections();
-    const encryptedConfig = this._encryptSSHConfig(config);
     const index = connections.findIndex(c => c.id === config.id);
 
+    // 编辑模式：敏感字段留空则保留原有的（直接保留加密值，避免解密失败导致数据丢失）
     if (index >= 0) {
+      const existing = connections[index];
+      if (!config.password && existing.password) {
+        config._encryptedPassword = existing.password;
+      }
+      if (!config.privateKey && existing.privateKey) {
+        config._encryptedPrivateKey = existing.privateKey;
+      }
+      if (!config.passphrase && existing.passphrase) {
+        config._encryptedPassphrase = existing.passphrase;
+      }
+    }
+
+    const encryptedConfig = this._encryptSSHConfig(config);
+
+    // 编辑模式下，如果新值为空，直接使用原有的加密值
+    if (index >= 0) {
+      if (config._encryptedPassword) encryptedConfig.password = config._encryptedPassword;
+      if (config._encryptedPrivateKey) encryptedConfig.privateKey = config._encryptedPrivateKey;
+      if (config._encryptedPassphrase) encryptedConfig.passphrase = config._encryptedPassphrase;
+      delete encryptedConfig._encryptedPassword;
+      delete encryptedConfig._encryptedPrivateKey;
+      delete encryptedConfig._encryptedPassphrase;
       connections[index] = encryptedConfig;
     } else {
       connections.push(encryptedConfig);
@@ -215,8 +237,20 @@ class ConfigStore {
    */
   saveAIModel(config) {
     const models = this.getAllAIModels();
-    const encryptedConfig = this._encryptAIModel(config);
     const index = models.findIndex(m => m.id === config.id);
+
+    // 编辑模式：如果未提供 apiKey，直接保留原有的加密值
+    let preservedApiKey = null;
+    if (index >= 0 && !config.apiKey) {
+      preservedApiKey = models[index].apiKey;
+    }
+
+    const encryptedConfig = this._encryptAIModel(config);
+
+    // 如果保留原有加密值，直接使用
+    if (preservedApiKey) {
+      encryptedConfig.apiKey = preservedApiKey;
+    }
 
     if (index >= 0) {
       models[index] = encryptedConfig;
@@ -266,7 +300,14 @@ class ConfigStore {
   // ========== AI全局配置 ==========
 
   getAIConfig() {
-    return this._store.get('aiConfig', {});
+    const config = this._store.get('aiConfig', {});
+    // 迁移旧版系统提示词（不含代码块指令的版本）
+    const oldPrompt = '你是一个专业的Linux运维助手。用户会描述运维需求，你需要生成对应的Linux命令。只输出可执行的命令，不要多余的解释。如果需要多条命令，用换行分隔。';
+    if (config.systemPrompt === oldPrompt) {
+      config.systemPrompt = '你是一个专业的Linux运维助手。用户会描述运维需求，你需要生成对应的Linux命令。请将命令用```bash代码块包裹，这样用户可以直接点击执行。可以简要说明命令的作用，但命令必须放在代码块中。如果需要多条命令，放在同一个代码块中，每行一条。';
+      this._store.set('aiConfig', config);
+    }
+    return config;
   }
 
   saveAIConfig(config) {

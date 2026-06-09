@@ -9,6 +9,9 @@ const { EventEmitter } = require('events');
 const configStore = require('./config-store');
 const security = require('./security');
 
+// 输出缓冲区最大字节数（100KB）
+const MAX_OUTPUT_BUFFER_SIZE = 100 * 1024;
+
 class SSHSession {
   constructor(sessionId, config) {
     this.id = sessionId;
@@ -50,6 +53,10 @@ class SSHSession {
           stream.on('data', (data) => {
             const text = data.toString('utf8');
             this._outputBuffer += text;
+            // 限制缓冲区大小，防止内存泄漏
+            if (this._outputBuffer.length > MAX_OUTPUT_BUFFER_SIZE) {
+              this._outputBuffer = this._outputBuffer.slice(-MAX_OUTPUT_BUFFER_SIZE);
+            }
             this.emitter.emit('output', { sessionId: this.id, data: text });
           });
 

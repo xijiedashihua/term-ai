@@ -1,6 +1,50 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+out/
+build/
+
+# OS files
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & secrets
 .env
 .env.local
+.env.*.local
+
+# IDE & editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# Debug & temp files
+package.json.debug
+src/main/debug.js
+
+# Electron cache
+electron-dist/
+.electron-builder/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+*.tar.gz
+.cache/
