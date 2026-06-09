@@ -9,64 +9,41 @@
   <link rel="stylesheet" href="vendor/xterm.css">
 </head>
 <body>
-  <!-- 全局菜单按钮 -->
-  <div id="global-menu-btn" class="global-menu-btn" title="全局菜单">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
-    </svg>
-  </div>
-  <div id="global-menu" class="global-menu hidden">
-    <div class="menu-item" data-action="settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      <span>全局配置</span>
-    </div>
-    <div class="menu-item" data-action="about">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <span>关于软件</span>
-    </div>
-    <div class="menu-separator"></div>
-    <div class="menu-item" data-action="export-config">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-      <span>导出配置</span>
-    </div>
-    <div class="menu-item" data-action="import-config">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-      <span>导入配置</span>
-    </div>
-  </div>
-
   <!-- 主布局 -->
   <div id="app" class="app-container">
-    <!-- 左侧：SSH配置栏 -->
-    <aside id="ssh-panel" class="ssh-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          SSH 连接
-        </h2>
-        <button id="toggle-ssh-panel" class="icon-btn" title="收起面板">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    <!-- 左侧功能栏（类VSCode Activity Bar） -->
+    <div class="activity-bar">
+      <div class="activity-bar-top">
+        <button class="activity-btn active" id="btn-ssh-panel" title="SSH 连接">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </button>
       </div>
-      <div class="panel-actions">
-        <button id="add-ssh-btn" class="btn btn-primary btn-sm">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          新建连接
+      <div class="activity-bar-bottom">
+        <button class="activity-btn" id="btn-settings" title="全局配置">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <button class="activity-btn" id="btn-about" title="关于">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- SSH配置面板（可收起） -->
+    <aside id="ssh-panel" class="ssh-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">SSH 连接</h2>
+        <button id="add-ssh-btn" class="icon-btn" title="新建连接">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
       <div id="ssh-list" class="ssh-list">
         <div class="empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <p>暂无SSH连接</p>
-          <p class="hint">点击"新建连接"添加服务器</p>
+          <p class="hint">点击 + 添加服务器</p>
         </div>
       </div>
     </aside>
-
-    <!-- SSH面板收起时的展开按钮 -->
-    <div id="ssh-panel-toggle" class="ssh-panel-toggle hidden" title="展开SSH面板">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>
 
     <!-- 核心操作区 -->
     <main class="main-area">
@@ -93,7 +70,7 @@
           <div class="welcome-screen" id="welcome-screen">
             <div class="welcome-content">
               <h1>AI-SSH 智能终端</h1>
-              <p>选择左侧SSH连接开始运维</p>
+              <p>点击左侧 + 添加SSH连接</p>
               <div class="shortcuts">
                 <div class="shortcut"><kbd>Ctrl+1</kbd> 终端模式</div>
                 <div class="shortcut"><kbd>Ctrl+2</kbd> AI模式</div>

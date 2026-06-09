@@ -1265,56 +1265,18 @@ async function saveAIModel() {
   }
 }
 
-// ========== 全局菜单 ==========
+// ========== Activity Bar ==========
 
-function setupGlobalMenu() {
-  const btn = document.getElementById('global-menu-btn');
-  const menu = document.getElementById('global-menu');
+function setupActivityBar() {
+  const sshBtn = document.getElementById('btn-ssh-panel');
+  const settingsBtn = document.getElementById('btn-settings');
+  const aboutBtn = document.getElementById('btn-about');
+  const sshPanel = document.getElementById('ssh-panel');
 
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', () => {
-    menu.classList.add('hidden');
-  });
-
-  menu.querySelectorAll('.menu-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const action = item.dataset.action;
-      menu.classList.add('hidden');
-
-      switch (action) {
-        case 'settings':
-          openSettingsModal();
-          break;
-        case 'about':
-          document.getElementById('about-modal').classList.remove('hidden');
-          break;
-        case 'export-config':
-          showToast('导出配置功能开发中...', 'info');
-          break;
-        case 'import-config':
-          showToast('导入配置功能开发中...', 'info');
-          break;
-      }
-    });
-  });
-}
-
-// ========== 面板收展 ==========
-
-function setupPanelToggles() {
-  // SSH面板
-  document.getElementById('toggle-ssh-panel').addEventListener('click', () => {
-    document.getElementById('ssh-panel').classList.add('collapsed');
-    document.getElementById('ssh-panel-toggle').classList.remove('hidden');
-  });
-
-  document.getElementById('ssh-panel-toggle').addEventListener('click', () => {
-    document.getElementById('ssh-panel').classList.remove('collapsed');
-    document.getElementById('ssh-panel-toggle').classList.add('hidden');
+  // SSH面板切换
+  sshBtn.addEventListener('click', () => {
+    const isCollapsed = sshPanel.classList.toggle('collapsed');
+    sshBtn.classList.toggle('active', !isCollapsed);
     // 重新适配终端
     if (state.activeSessionId) {
       const session = state.sessions.get(state.activeSessionId);
@@ -1324,21 +1286,14 @@ function setupPanelToggles() {
     }
   });
 
-  // AI面板
-  document.getElementById('toggle-ai-panel').addEventListener('click', () => {
-    document.getElementById('ai-panel').classList.add('collapsed');
-    document.getElementById('ai-panel-toggle').classList.remove('hidden');
+  // 设置按钮
+  settingsBtn.addEventListener('click', () => {
+    openSettingsModal();
   });
 
-  document.getElementById('ai-panel-toggle').addEventListener('click', () => {
-    document.getElementById('ai-panel').classList.remove('collapsed');
-    document.getElementById('ai-panel-toggle').classList.add('hidden');
-    if (state.activeSessionId) {
-      const session = state.sessions.get(state.activeSessionId);
-      if (session) {
-        setTimeout(() => session.fitAddon.fit(), 100);
-      }
-    }
+  // 关于按钮
+  aboutBtn.addEventListener('click', () => {
+    document.getElementById('about-modal').classList.remove('hidden');
   });
 }
 
@@ -1616,8 +1571,7 @@ async function initApp() {
   // 设置各模块
   setupSessionListeners();
   setupAIChat();
-  setupGlobalMenu();
-  setupPanelToggles();
+  setupActivityBar();
   setupSFTPPanel();
   setupModals();
   setupKeyboardShortcuts();
