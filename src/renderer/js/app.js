@@ -327,6 +327,11 @@ function switchToSession(sessionId) {
       window.api.session.resize(sessionId, dims.cols, dims.rows);
     }
     updateStatusBar(session.status);
+
+    // 更新AI面板的会话标签
+    const conn = state.sshConnections.find(c => c.id === session.sshConfigId);
+    const label = conn ? (conn.name || conn.host) : 'AI Agent';
+    document.getElementById('ai-session-label').textContent = label;
   }
 
   // 加载新会话的对话历史（异步，不阻塞UI）
@@ -375,6 +380,8 @@ function closeSession(sessionId) {
     setViewMode('terminal');
     document.getElementById('welcome-screen').classList.remove('hidden');
     updateStatusBar('disconnected');
+    // 重置AI面板标签
+    document.getElementById('ai-session-label').textContent = 'AI Agent';
     // 重置AI面板为欢迎状态
     const aiChat = document.getElementById('ai-chat-messages');
     aiChat.innerHTML = `
