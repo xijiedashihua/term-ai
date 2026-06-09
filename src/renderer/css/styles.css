@@ -493,8 +493,11 @@ html, body {
 /* Terminal Container */
 .terminal-container {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
+  min-width: 0;
 }
 
 .welcome-screen {
@@ -666,6 +669,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .ai-panel-header {

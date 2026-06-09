@@ -343,6 +343,9 @@ function closeSession(sessionId) {
     if (!confirm('确定关闭此连接？')) return;
   }
 
+  // 保存对话历史
+  saveCurrentChatHistory();
+
   // 先从状态中移除，防止 onOutput/onStatus 写入已销毁的终端
   state.sessions.delete(sessionId);
 
@@ -353,6 +356,18 @@ function closeSession(sessionId) {
   try { session.terminal.dispose(); } catch (e) { /* 已销毁 */ }
   session.wrapper.remove();
   session.tabElement.remove();
+
+  // 清空AI面板
+  state.aiMessages.delete(sessionId);
+  const aiChat = document.getElementById('ai-chat-messages');
+  aiChat.innerHTML = `
+    <div class="ai-welcome">
+      <div class="ai-avatar">🤖</div>
+      <div class="ai-welcome-text">
+        <p>我是AI运维Agent。</p>
+        <p class="hint">连接SSH后开始对话</p>
+      </div>
+    </div>`;
 
   // 切换到其他标签或显示欢迎页
   if (state.sessions.size > 0) {
