@@ -4,7 +4,7 @@
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
-const { IPC_CONFIG, IPC_SESSION, IPC_AI } = require('../shared/constants');
+const { IPC_CONFIG, IPC_SESSION, IPC_AI, IPC_CHAT } = require('../shared/constants');
 
 contextBridge.exposeInMainWorld('api', {
   // ========== 配置层 API（脱敏数据）==========
@@ -92,6 +92,15 @@ contextBridge.exposeInMainWorld('api', {
     checkCommand: (cmd) => ipcRenderer.invoke('security:check-command', cmd),
     checkMultiple: (cmd) => ipcRenderer.invoke('security:check-multiple', cmd),
     sanitize: (text) => ipcRenderer.invoke('security:sanitize', text),
+  },
+
+  // ========== 对话历史 API ==========
+
+  chat: {
+    saveHistory: (sessionId, data) => ipcRenderer.invoke(IPC_CHAT.SAVE_HISTORY, sessionId, data),
+    getHistory: (sessionId) => ipcRenderer.invoke(IPC_CHAT.GET_HISTORY, sessionId),
+    deleteHistory: (sessionId) => ipcRenderer.invoke(IPC_CHAT.DELETE_HISTORY, sessionId),
+    listHistories: () => ipcRenderer.invoke(IPC_CHAT.LIST_HISTORIES),
   },
 
   // ========== 对话框 API ==========

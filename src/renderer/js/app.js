@@ -13,6 +13,10 @@ const state = {
   aiMessages: new Map(), // sessionId -> [{ role, content }]
   isStreaming: false,
   pendingCommand: null,
+  // Agent 相关状态
+  agentMode: 'ask', // ask | auto | plan
+  agentSteps: [], // 当前任务的步骤列表
+  currentStep: 0, // 当前执行到第几步
 };
 
 // ========== 工具函数 ==========
@@ -290,6 +294,11 @@ function createTerminal(sessionId, sshConfigId) {
 }
 
 function switchToSession(sessionId) {
+  // 保存当前会话的对话历史
+  if (state.activeSessionId && state.aiMessages.has(state.activeSessionId)) {
+    saveCurrentChatHistory();
+  }
+
   state.activeSessionId = sessionId;
 
   // 更新标签样式
@@ -313,6 +322,14 @@ function switchToSession(sessionId) {
     }
     updateStatusBar(session.status);
   }
+
+  // 加载新会话的对话历史（异步，不阻塞UI）
+  loadChatHistory(sessionId).then(loaded => {
+    if (!loaded) {
+      // 没有历史，显示欢迎页
+      renderChatMessages(sessionId);
+    }
+  });
 }
 
 function closeSession(sessionId) {
@@ -546,6 +563,25 @@ function setupAIChat() {
     state.selectedModelId = modelSelect.value;
   });
 
+  // Agent 模式切换
+  document.querySelectorAll('.ai-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      state.agentMode = mode;
+      document.querySelectorAll('.ai-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // 更新模式提示
+      const hints = { ask: 'Ask: 命令需确认', auto: 'Auto: 命令自动执行', plan: 'Plan: 只生成计划' };
+      document.getElementById('ai-mode-hint').textContent = hints[mode];
+      // 更新欢迎页模式显示
+      const welcomeHint = document.querySelector('.ai-welcome-text .hint strong');
+      if (welcomeHint) welcomeHint.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+    });
+  });
+
+  // 对话历史按钮
+  document.getElementById('ai-history-btn').addEventListener('click', openChatHistoryModal);
+
   // 监听流式数据
   window.api.ai.onStreamChunk((data) => {
     appendAIStreamContent(data.content);
@@ -560,6 +596,8 @@ function setupAIChat() {
     showToast(`AI错误: ${data.error}`, 'error');
   });
 }
+
+// ========== Agent 对话核心 ==========
 
 async function sendAIMessage() {
   const input = document.getElementById('ai-input');
@@ -588,9 +626,6 @@ async function sendAIMessage() {
     }
   }
 
-  // 显示AI正在思考
-  const thinkingEl = addThinkingIndicator();
-
   // 更新UI状态
   state.isStreaming = true;
   document.getElementById('ai-send-btn').classList.add('hidden');
@@ -604,19 +639,187 @@ async function sendAIMessage() {
   const messages = state.aiMessages.get(sessionId);
   messages.push({ role: 'user', content: message });
 
+  // 对话压缩：超过20条消息时压缩
+  if (messages.length > 20) {
+    const { compressed } = await window.api.chat.compressMessages
+      ? { compressed: messages } // fallback if not available
+      : { compressed: messages };
+    // 简单压缩：保留最近10条
+    const recent = messages.slice(-10);
+    const summary = `[历史摘要] 之前共${messages.length - 10}条消息`;
+    state.aiMessages.set(sessionId, [
+      { role: 'system', content: summary },
+      ...recent,
+    ]);
+  }
+
   // 创建AI消息容器用于流式输出
   state._streamBubble = addChatMessage('ai', '', true);
 
   try {
+    const currentMessages = state.aiMessages.get(sessionId);
     await window.api.ai.stream({
       modelId: state.selectedModelId,
-      messages: messages.slice(-10), // 最近10条消息
+      messages: currentMessages.slice(-15), // 最近15条消息
       terminalContext,
+      mode: state.agentMode, // 传递 Agent 模式
     });
   } catch (err) {
-    thinkingEl.remove();
     showToast('AI请求失败: ' + err.message, 'error');
   }
+}
+
+// ========== 会话历史持久化 ==========
+
+async function saveCurrentChatHistory() {
+  const sessionId = state.activeSessionId || 'default';
+  const messages = state.aiMessages.get(sessionId) || [];
+  if (messages.length === 0) return;
+
+  const conn = state.sshConnections.find(c => {
+    const session = state.sessions.get(sessionId);
+    return session && session.sshConfigId === c.id;
+  });
+
+  await window.api.chat.saveHistory(sessionId, {
+    messages,
+    mode: state.agentMode,
+    sshConfigId: conn?.id || null,
+    serverName: conn?.name || conn?.host || '未连接',
+    createdAt: Date.now(),
+  });
+}
+
+async function loadChatHistory(sessionId) {
+  const history = await window.api.chat.getHistory(sessionId);
+  if (history && history.messages) {
+    state.aiMessages.set(sessionId, history.messages);
+    if (history.mode) {
+      state.agentMode = history.mode;
+      // 更新模式按钮状态
+      document.querySelectorAll('.ai-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === history.mode);
+      });
+      const hints = { ask: 'Ask: 命令需确认', auto: 'Auto: 命令自动执行', plan: 'Plan: 只生成计划' };
+      document.getElementById('ai-mode-hint').textContent = hints[history.mode] || '';
+    }
+    // 重新渲染对话
+    renderChatMessages(sessionId);
+    return true;
+  }
+  return false;
+}
+
+function renderChatMessages(sessionId) {
+  const container = document.getElementById('ai-chat-messages');
+  container.innerHTML = '';
+  const messages = state.aiMessages.get(sessionId) || [];
+  if (messages.length === 0) {
+    container.innerHTML = `
+      <div class="ai-welcome">
+        <div class="ai-avatar">🤖</div>
+        <div class="ai-welcome-text">
+          <p>你好！我是AI运维Agent。</p>
+          <p>描述你的运维需求，我会分析、规划并执行。</p>
+          <p class="hint">当前模式: <strong>${state.agentMode}</strong></p>
+        </div>
+      </div>`;
+    return;
+  }
+  for (const msg of messages) {
+    if (msg.role === 'system') continue; // 不显示系统消息
+    if (msg.role === 'user') {
+      addChatMessage('user', msg.content);
+    } else if (msg.role === 'assistant') {
+      const bubble = addChatMessage('ai', '', false);
+      bubble.innerHTML = renderMarkdown(msg.content);
+      bindCommandButtons(bubble);
+    }
+  }
+}
+
+function renderMarkdown(text) {
+  let html = escapeHtml(text);
+  // 代码块 → 可执行命令块
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<div class="ai-command-block"><div class="ai-command-header"><span>命令</span></div><div class="ai-command-content">$2</div><div class="ai-command-actions"><button class="btn btn-xs btn-primary execute-cmd-btn">执行</button><button class="btn btn-xs btn-secondary copy-cmd-btn">复制</button></div></div>');
+  // 行内代码
+  html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg-surface);padding:1px 4px;border-radius:3px;font-family:var(--font-mono);font-size:12px;">$1</code>');
+  // 粗体
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  return html;
+}
+
+function bindCommandButtons(container) {
+  container.querySelectorAll('.execute-cmd-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cmdBlock = btn.closest('.ai-command-block');
+      const cmd = cmdBlock.querySelector('.ai-command-content').textContent.trim();
+      executeCommandFromAI(cmd);
+    });
+  });
+  container.querySelectorAll('.copy-cmd-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cmdBlock = btn.closest('.ai-command-block');
+      const cmd = cmdBlock.querySelector('.ai-command-content').textContent.trim();
+      navigator.clipboard.writeText(cmd);
+      showToast('已复制到剪贴板', 'success');
+    });
+  });
+}
+
+// ========== 对话历史列表 ==========
+
+async function openChatHistoryModal() {
+  const modal = document.getElementById('chat-history-modal');
+  const list = document.getElementById('chat-history-list');
+  const histories = await window.api.chat.listHistories();
+
+  if (histories.length === 0) {
+    list.innerHTML = '<div class="empty-state"><p>暂无对话历史</p></div>';
+  } else {
+    list.innerHTML = histories.map(h => `
+      <div class="chat-history-item" data-session-id="${h.sessionId}">
+        <div class="chat-history-info">
+          <div class="chat-history-server">${escapeHtml(h.serverName || '未知')}</div>
+          <div class="chat-history-meta">
+            <span class="chat-history-mode">${h.mode || 'ask'}</span>
+            <span class="chat-history-time">${new Date(h.updatedAt).toLocaleString()}</span>
+            <span class="chat-history-count">${(h.messages || []).length}条消息</span>
+          </div>
+        </div>
+        <div class="chat-history-actions">
+          <button class="icon-btn btn-continue" title="继续对话"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+          <button class="icon-btn btn-delete" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>`).join('');
+
+    // 绑定事件
+    list.querySelectorAll('.btn-continue').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.chat-history-item');
+        const sessionId = item.dataset.sessionId;
+        await loadChatHistory(sessionId);
+        modal.classList.add('hidden');
+      });
+    });
+
+    list.querySelectorAll('.btn-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.chat-history-item');
+        const sessionId = item.dataset.sessionId;
+        if (confirm('确定删除此对话历史？')) {
+          await window.api.chat.deleteHistory(sessionId);
+          state.aiMessages.delete(sessionId);
+          openChatHistoryModal(); // 刷新列表
+          showToast('对话历史已删除', 'success');
+        }
+      });
+    });
+  }
+
+  modal.classList.remove('hidden');
 }
 
 function addChatMessage(role, content, isStreaming = false) {
@@ -701,22 +904,23 @@ function finishAIStream() {
 
     // 绑定命令执行按钮
     if (state._streamBubble) {
-      state._streamBubble.querySelectorAll('.execute-cmd-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const cmdBlock = btn.closest('.ai-command-block');
-          const cmd = cmdBlock.querySelector('.ai-command-content').textContent.trim();
-          executeCommandFromAI(cmd);
-        });
-      });
-      state._streamBubble.querySelectorAll('.copy-cmd-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const cmdBlock = btn.closest('.ai-command-block');
-          const cmd = cmdBlock.querySelector('.ai-command-content').textContent.trim();
-          navigator.clipboard.writeText(cmd);
-          showToast('已复制到剪贴板', 'success');
-        });
-      });
+      bindCommandButtons(state._streamBubble);
+
+      // Auto 模式：自动执行代码块中的命令
+      if (state.agentMode === 'auto' && state.activeSessionId) {
+        const cmdBlocks = state._streamBubble.querySelectorAll('.ai-command-block');
+        if (cmdBlocks.length > 0) {
+          const firstCmd = cmdBlocks[0].querySelector('.ai-command-content').textContent.trim();
+          if (firstCmd) {
+            // 延迟执行，让用户看到命令内容
+            setTimeout(() => executeCommandFromAI(firstCmd), 500);
+          }
+        }
+      }
     }
+
+    // 持久化保存对话
+    saveCurrentChatHistory();
   }
 
   state._streamBubble = null;

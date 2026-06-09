@@ -38,6 +38,7 @@ class ConfigStore {
           defaultModelId: null,
           systemPrompt: '你是一个专业的Linux运维助手。用户会描述运维需求，你需要生成对应的Linux命令。请将命令用```bash代码块包裹，这样用户可以直接点击执行。可以简要说明命令的作用，但命令必须放在代码块中。如果需要多条命令，放在同一个代码块中，每行一条。',
         },
+        chatHistories: {},
         appSettings: {
           terminalFontSize: 14,
           terminalFontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -312,6 +313,48 @@ class ConfigStore {
 
   saveAIConfig(config) {
     this._store.set('aiConfig', config);
+  }
+
+  // ========== 对话历史管理 ==========
+
+  /**
+   * 获取指定会话的对话历史
+   */
+  getChatHistory(sessionId) {
+    const histories = this._store.get('chatHistories', {});
+    return histories[sessionId] || null;
+  }
+
+  /**
+   * 保存对话历史
+   */
+  saveChatHistory(sessionId, data) {
+    const histories = this._store.get('chatHistories', {});
+    histories[sessionId] = {
+      ...data,
+      updatedAt: Date.now(),
+    };
+    this._store.set('chatHistories', histories);
+  }
+
+  /**
+   * 删除对话历史
+   */
+  deleteChatHistory(sessionId) {
+    const histories = this._store.get('chatHistories', {});
+    delete histories[sessionId];
+    this._store.set('chatHistories', histories);
+  }
+
+  /**
+   * 获取所有对话历史（列表用）
+   */
+  getAllChatHistories() {
+    const histories = this._store.get('chatHistories', {});
+    return Object.entries(histories).map(([sessionId, data]) => ({
+      sessionId,
+      ...data,
+    })).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 
   // ========== 应用设置 ==========

@@ -1392,3 +1392,264 @@ html, body {
     box-shadow: none;
   }
 }
+
+/* ========== AI Agent 模式切换 ========== */
+
+.ai-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.ai-mode-switcher {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.ai-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+}
+
+.ai-mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.ai-mode-btn.active {
+  color: var(--accent-blue);
+  background: var(--bg-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.ai-mode-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ai-model-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-input-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-mode-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ========== AI 思考过程折叠 ========== */
+
+.ai-thinking {
+  margin: 8px 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.ai-thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ai-thinking-header:hover {
+  background: var(--bg-hover);
+}
+
+.ai-thinking-header .thinking-icon {
+  font-size: 14px;
+}
+
+.ai-thinking-header .thinking-label {
+  flex: 1;
+}
+
+.ai-thinking-header .thinking-toggle {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform var(--transition);
+}
+
+.ai-thinking.collapsed .thinking-toggle {
+  transform: rotate(-90deg);
+}
+
+.ai-thinking-body {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ai-thinking.collapsed .ai-thinking-body {
+  display: none;
+}
+
+/* ========== AI 步骤进度 ========== */
+
+.ai-steps {
+  margin: 8px 0;
+}
+
+.ai-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.ai-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ai-step.active .ai-step-indicator {
+  background: var(--accent-blue);
+  color: var(--bg-primary);
+}
+
+.ai-step.done .ai-step-indicator {
+  background: var(--accent-green);
+  color: var(--bg-primary);
+}
+
+.ai-step.error .ai-step-indicator {
+  background: var(--accent-red);
+  color: var(--bg-primary);
+}
+
+.ai-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-step-title {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.ai-step-detail {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* ========== 对话历史列表 ========== */
+
+.chat-history-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.chat-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  transition: background var(--transition);
+}
+
+.chat-history-item:hover {
+  background: var(--bg-hover);
+}
+
+.chat-history-item:last-child {
+  border-bottom: none;
+}
+
+.chat-history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-history-server {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-history-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chat-history-mode {
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.chat-history-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+/* ========== Auto 模式命令自动执行动画 ========== */
+
+.ai-command-block.auto-executing {
+  border-color: var(--accent-blue);
+  animation: auto-exec-pulse 1s ease-in-out infinite;
+}
+
+@keyframes auto-exec-pulse {
+  0%, 100% { border-color: var(--accent-blue); }
+  50% { border-color: transparent; }
+}
+
+.ai-command-block.auto-executing .ai-command-header::after {
+  content: '自动执行中...';
+  font-size: 11px;
+  color: var(--accent-blue);
+  margin-left: 8px;
+}

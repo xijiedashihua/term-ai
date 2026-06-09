@@ -43,6 +43,14 @@ const IPC_AI = {
   CHAT_CLEAR: 'ai:chat:clear',
 };
 
+// IPC 通道名称 - 对话历史
+const IPC_CHAT = {
+  SAVE_HISTORY: 'chat:save-history',
+  GET_HISTORY: 'chat:get-history',
+  DELETE_HISTORY: 'chat:delete-history',
+  LIST_HISTORIES: 'chat:list-histories',
+};
+
 // 高危命令列表（内置拦截库）
 const DANGEROUS_COMMANDS = [
   { pattern: /rm\s+(-[rf]+\s+)?\/(\s|$)/, level: 'critical', desc: '删除根目录' },
@@ -129,6 +137,7 @@ module.exports = {
   IPC_CONFIG,
   IPC_SESSION,
   IPC_AI,
+  IPC_CHAT,
   DANGEROUS_COMMANDS,
   SENSITIVE_PATTERNS,
   DEFAULT_TERMINAL,

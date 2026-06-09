@@ -121,31 +121,52 @@
       </div>
     </main>
 
-    <!-- 右侧：AI对话面板 -->
+    <!-- 右侧：AI Agent面板 -->
     <aside id="ai-panel" class="ai-panel">
       <div class="panel-header">
         <h2 class="panel-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z"/><path d="M18 14h.01"/><path d="M6 14h.01"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
-          AI 助手
+          AI Agent
         </h2>
         <div class="ai-panel-controls">
-          <select id="ai-model-select" class="ai-model-select" title="选择AI模型">
-            <option value="">选择模型...</option>
-          </select>
+          <button id="ai-history-btn" class="icon-btn" title="对话历史">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </button>
           <button id="toggle-ai-panel" class="icon-btn" title="收起面板">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
       </div>
 
+      <!-- 模式切换和模型选择 -->
+      <div class="ai-toolbar">
+        <div class="ai-mode-switcher">
+          <button class="ai-mode-btn active" data-mode="ask" title="询问模式 - 命令需手动确认执行">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Ask
+          </button>
+          <button class="ai-mode-btn" data-mode="auto" title="自动模式 - 命令自动执行">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Auto
+          </button>
+          <button class="ai-mode-btn" data-mode="plan" title="计划模式 - 只生成计划不执行">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Plan
+          </button>
+        </div>
+        <select id="ai-model-select" class="ai-model-select" title="选择AI模型">
+          <option value="">选择模型...</option>
+        </select>
+      </div>
+
       <!-- AI对话历史 -->
       <div id="ai-chat-messages" class="ai-chat-messages">
         <div class="ai-welcome">
-          <div class="ai-avatar">AI</div>
+          <div class="ai-avatar">🤖</div>
           <div class="ai-welcome-text">
-            <p>你好！我是AI运维助手。</p>
-            <p>请描述你的运维需求，我会生成对应的Linux命令供你确认执行。</p>
-            <p class="hint">当前未绑定终端，请先连接SSH会话。</p>
+            <p>你好！我是AI运维Agent。</p>
+            <p>描述你的运维需求，我会分析、规划并执行。</p>
+            <p class="hint">当前模式: <strong>Ask</strong>（命令需确认后执行）</p>
           </div>
         </div>
       </div>
@@ -155,8 +176,9 @@
         <div class="ai-input-toolbar">
           <label class="ai-context-toggle" title="自动同步终端上下文到AI">
             <input type="checkbox" id="ai-context-sync" checked>
-            <span>同步终端上下文</span>
+            <span>同步终端</span>
           </label>
+          <span id="ai-mode-hint" class="ai-mode-hint">Ask: 命令需确认</span>
         </div>
         <div class="ai-input-wrapper">
           <textarea id="ai-input" class="ai-input" placeholder="描述你的运维需求..." rows="3"></textarea>
@@ -169,6 +191,24 @@
         </div>
       </div>
     </aside>
+
+    <!-- 对话历史列表弹窗 -->
+    <div id="chat-history-modal" class="modal hidden">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>对话历史</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="chat-history-list" class="chat-history-list">
+            <div class="empty-state">
+              <p>暂无对话历史</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- AI面板收起时的展开按钮 -->
     <div id="ai-panel-toggle" class="ai-panel-toggle hidden" title="展开AI面板">

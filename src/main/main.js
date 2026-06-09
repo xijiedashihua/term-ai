@@ -10,7 +10,7 @@ const sshManager = require('./ssh-manager');
 const sftpManager = require('./sftp-manager');
 const aiService = require('./ai-service');
 const security = require('./security');
-const { IPC_CONFIG, IPC_SESSION, IPC_AI } = require('../shared/constants');
+const { IPC_CONFIG, IPC_SESSION, IPC_AI, IPC_CHAT } = require('../shared/constants');
 
 let mainWindow = null;
 
@@ -237,9 +237,12 @@ function registerIPC() {
     });
   });
 
-  ipcMain.handle(IPC_AI.CHAT_STREAM, async (event, { modelId, messages, terminalContext }) => {
+  ipcMain.handle(IPC_AI.CHAT_STREAM, async (event, { modelId, messages, terminalContext, mode }) => {
     const aiConfig = configStore.getAIConfig();
-    const systemPrompt = aiConfig.systemPrompt || '';
+    const basePrompt = aiConfig.systemPrompt || '';
+
+    // 使用 Agent 模式构建系统提示词
+    const systemPrompt = aiService.buildAgentSystemPrompt(mode || 'ask', basePrompt);
 
     // 合并为单条 system 消息（兼容所有 API）
     let systemContent = systemPrompt;
@@ -279,6 +282,26 @@ function registerIPC() {
   ipcMain.handle(IPC_AI.CHAT_STOP, () => {
     aiService.stopStream();
     return { success: true };
+  });
+
+  // ========== 对话历史 IPC ==========
+
+  ipcMain.handle(IPC_CHAT.SAVE_HISTORY, (event, sessionId, data) => {
+    configStore.saveChatHistory(sessionId, data);
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHAT.GET_HISTORY, (event, sessionId) => {
+    return configStore.getChatHistory(sessionId);
+  });
+
+  ipcMain.handle(IPC_CHAT.DELETE_HISTORY, (event, sessionId) => {
+    configStore.deleteChatHistory(sessionId);
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHAT.LIST_HISTORIES, () => {
+    return configStore.getAllChatHistories();
   });
 
   // 安全相关

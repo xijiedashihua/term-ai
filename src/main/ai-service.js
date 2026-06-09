@@ -309,6 +309,95 @@ class AIService {
       return `请求失败(${statusCode}): ${body.slice(0, 200)}`;
     }
   }
+
+  /**
+   * 构建 Agent 模式的系统提示词
+   * @param {string} mode - ask | auto | plan
+   * @param {string} basePrompt - 用户配置的基础提示词
+   */
+  buildAgentSystemPrompt(mode, basePrompt) {
+    const modeInstructions = {
+      ask: `你是一个专业的Linux运维Agent助手。用户会描述运维需求，你需要：
+1. 先分析用户需求，用简短文字说明你的理解
+2. 生成对应的Linux命令，用\`\`\`bash代码块包裹
+3. 等待用户点击"执行"按钮后命令才会被发送到终端
+4. 命令执行后，分析终端输出，给出下一步建议
+
+重要：每次只生成一个命令块，等用户确认执行后再继续下一步。
+如果任务需要多步骤，每次只输出当前步骤的命令。`,
+
+      auto: `你是一个专业的Linux运维Agent助手，处于自动执行模式。用户会描述运维需求，你需要：
+1. 先用简短文字说明你的理解和执行计划
+2. 生成对应的Linux命令，用\`\`\`bash代码块包裹
+3. 命令会自动发送到终端执行，你不需要等待确认
+4. 命令执行后，分析终端输出，自动决定下一步操作
+
+重要：你可以连续输出多个命令，系统会依次自动执行。
+每个命令块代表一个独立步骤。执行完一个步骤后，根据输出决定是否继续。`,
+
+      plan: `你是一个专业的Linux运维规划助手。用户会描述运维需求，你需要：
+1. 详细分析需求，制定完整的执行计划
+2. 列出所有需要执行的步骤，每步用\`\`\`bash代码块包裹
+3. 说明每步的作用和预期结果
+4. 标注可能的风险点
+
+重要：你只生成计划，不会执行任何命令。
+用户会根据你的计划决定是否执行。`,
+    };
+
+    return modeInstructions[mode] + '\n\n' + basePrompt;
+  }
+
+  /**
+   * 对话压缩 - 将旧消息压缩为摘要
+   * @param {Array} messages - 原始消息数组
+   * @param {number} keepRecent - 保留最近N条消息
+   * @returns {{ compressed: Array, summary: string }}
+   */
+  compressMessages(messages, keepRecent = 10) {
+    if (messages.length <= keepRecent + 2) {
+      return { compressed: messages, summary: '' };
+    }
+
+    const oldMessages = messages.slice(0, -keepRecent);
+    const recentMessages = messages.slice(-keepRecent);
+
+    // 提取关键信息生成摘要
+    const userMessages = oldMessages.filter(m => m.role === 'user').map(m => m.content);
+    const assistantMessages = oldMessages.filter(m => m.role === 'assistant').map(m => m.content);
+
+    let summary = '[历史摘要]\n';
+    if (userMessages.length > 0) {
+      summary += '用户需求：' + userMessages.slice(0, 3).join('；');
+      if (userMessages.length > 3) summary += `等${userMessages.length}条`;
+      summary += '\n';
+    }
+    if (assistantMessages.length > 0) {
+      // 提取命令
+      const commands = [];
+      for (const msg of assistantMessages) {
+        const matches = msg.match(/```(?:bash)?\n?([\s\S]*?)```/g);
+        if (matches) {
+          for (const m of matches) {
+            const cmd = m.replace(/```(?:bash)?\n?/, '').replace(/```/, '').trim();
+            if (cmd) commands.push(cmd.split('\n')[0]); // 只取第一行
+          }
+        }
+      }
+      if (commands.length > 0) {
+        summary += '已执行命令：' + commands.slice(0, 5).join('；');
+        if (commands.length > 5) summary += `等${commands.length}条`;
+        summary += '\n';
+      }
+    }
+
+    const compressed = [
+      { role: 'system', content: summary },
+      ...recentMessages,
+    ];
+
+    return { compressed, summary };
+  }
 }
 
 module.exports = new AIService();
